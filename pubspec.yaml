@@ -37,6 +37,9 @@ dependencies:
   fluent_ui: ^4.16.1
   re_editor: ^0.10.0
   file_selector: ^1.1.0
+  fluentui_system_icons: ^1.1.273
+  flutter_svg: ^2.3.2
+  re_highlight: ^0.0.3
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +57,10 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - assets/jetbrains_icons/
+    - assets/jetbrains_icons/icons/file/
+    - assets/jetbrains_icons/icons/folder/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

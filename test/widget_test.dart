@@ -5,6 +5,109 @@ import 'package:mono_editor/main.dart';
 import 'package:re_editor/re_editor.dart';
 
 void main() {
+  testWidgets('编辑状态刷新时保留 Tab 实例和输入焦点', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    final tab = tester.widget<Tab>(find.byType(Tab).first);
+    final editor = tester.widget<CodeEditor>(find.byType(CodeEditor));
+    final focusNode = editor.focusNode!;
+    focusNode.requestFocus();
+    await tester.pump();
+    expect(focusNode.hasFocus, isTrue);
+
+    editor.controller!.text = '正在编辑';
+    await tester.pump();
+    expect(tester.widget<Tab>(find.byType(Tab).first), same(tab));
+    expect(focusNode.hasFocus, isTrue);
+    expect(find.text('临时文档 ●'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('切换到空 Workspace 后返回 LightEdit 保留文档和光标', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    final light = tester
+        .widget<CodeEditor>(find.byType(CodeEditor))
+        .controller!;
+    light.text = '第一行\n第二行';
+    light.selection = CodeLineSelection.collapsed(index: 1, offset: 1);
+    await tester.pump();
+
+    await tester.tap(find.text('LightEdit').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workspace').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(CodeEditor), findsNothing);
+    expect(find.text('MonoEditor'), findsOneWidget);
+    expect(find.text('未选择文件夹'), findsOneWidget);
+    expect(find.text('选择文件夹开始 Workspace 工作'), findsOneWidget);
+    expect(find.byTooltip('保存'), findsNothing);
+    expect(find.byTooltip('新建'), findsNothing);
+
+    await tester.tap(find.text('Workspace').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('LightEdit').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CodeEditor>(find.byType(CodeEditor)).controller,
+      same(light),
+    );
+    expect(light.selection.extentIndex, 1);
+    expect(find.text('临时文档 ●'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Workspace 保留顶栏和状态栏，不显示文件操作按钮', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    await tester.tap(find.text('LightEdit').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workspace').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('MonoEditor'), findsOneWidget);
+    expect(find.text('未选择文件夹'), findsOneWidget);
+    expect(find.text('Workspace'), findsNWidgets(2));
+    expect(find.byTooltip('保存'), findsNothing);
+    expect(find.byTooltip('新建'), findsNothing);
+    expect(find.byIcon(FluentIcons.more), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Workspace 左侧文件浏览器可以收起并重新显示', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    await tester.tap(find.text('LightEdit').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workspace').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('文件'), findsOneWidget);
+    await tester.tap(find.byTooltip('隐藏文件浏览器'));
+    await tester.pumpAndSettle();
+    expect(find.text('文件'), findsNothing);
+    await tester.tap(find.byTooltip('显示文件浏览器'));
+    await tester.pumpAndSettle();
+    expect(find.text('文件'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Workspace Explorer 宽度可拖动调整', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    await tester.tap(find.text('LightEdit').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workspace').last);
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey('explorer-resize-handle'));
+    final before = tester.getTopLeft(handle).dx;
+    await tester.drag(handle, const Offset(80, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(handle).dx, greaterThan(before + 70));
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('状态栏可切换编码与换行符并跳转行列', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     await tester.pumpWidget(const MonoEditorApp());
