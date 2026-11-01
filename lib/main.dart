@@ -23,6 +23,7 @@ class _DocumentTab {
        ),
        savedText = text,
        savedEncoding = encoding,
+       lineBreak = lineBreak,
        savedLineBreak = lineBreak;
 
   CodeLineEditingController controller;
@@ -33,10 +34,12 @@ class _DocumentTab {
   TextFileEncoding encoding;
   TextFileEncoding savedEncoding;
   TextLineBreak savedLineBreak;
+  TextLineBreak lineBreak;
   String savedText;
   bool isDirty = false;
   String get name => path == null ? '临时文档' : Uri.file(path!).pathSegments.last;
-  String get lineEnding => switch (controller.options.lineBreak) {
+  String get text => controller.codeLines.asString(lineBreak);
+  String get lineEnding => switch (lineBreak) {
     TextLineBreak.crlf => 'CRLF',
     TextLineBreak.cr => 'CR',
     TextLineBreak.lf => 'LF',
@@ -82,9 +85,9 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
   }
 
   bool _isTabDirty(_DocumentTab tab) =>
-      tab.controller.text != tab.savedText ||
+      tab.text != tab.savedText ||
       tab.encoding != tab.savedEncoding ||
-      tab.controller.options.lineBreak != tab.savedLineBreak;
+      tab.lineBreak != tab.savedLineBreak;
 
   @override
   void dispose() {
@@ -144,6 +147,7 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
       tab.scrollController.dispose();
       tab.scrollController.verticalScroller.dispose();
       tab.scrollController.horizontalScroller.dispose();
+      tab.editorFocusNode.dispose();
     });
   }
 
@@ -274,7 +278,7 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
           }
         }
       }
-      final text = tab.controller.text;
+      final text = tab.text;
       final bytes = await writeTextFile(
         path: path,
         text: text,
@@ -287,7 +291,7 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
         tab.originalBytes = bytes;
         tab.savedText = text;
         tab.savedEncoding = tab.encoding;
-        tab.savedLineBreak = tab.controller.options.lineBreak;
+        tab.savedLineBreak = tab.lineBreak;
         tab.isDirty = _isTabDirty(tab);
         _error = null;
       });
@@ -301,7 +305,7 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
   void _changeEncoding(_DocumentTab tab, TextFileEncoding encoding) {
     if (tab.encoding == encoding || _isBusy) return;
     try {
-      encodeText(tab.controller.text, encoding);
+      encodeText(tab.text, encoding);
       setState(() {
         tab.encoding = encoding;
         tab.isDirty = _isTabDirty(tab);
@@ -313,21 +317,12 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
   }
 
   void _changeLineBreak(_DocumentTab tab, TextLineBreak lineBreak) {
-    if (tab.controller.options.lineBreak == lineBreak || _isBusy) return;
-    final previous = tab.controller;
-    final next = CodeLineEditingController(
-      codeLines: previous.codeLines,
-      options: previous.options.copyWith(lineBreak: lineBreak),
-    );
-    next.selection = previous.selection;
-    previous.removeListener(_onEditorChanged);
-    next.addListener(_onEditorChanged);
+    if (tab.lineBreak == lineBreak || _isBusy) return;
     setState(() {
-      tab.controller = next;
+      tab.lineBreak = lineBreak;
       tab.isDirty = _isTabDirty(tab);
       _error = null;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
   }
 
   Future<void> _goToPosition(_DocumentTab tab) async {
@@ -498,7 +493,7 @@ class _MonoEditorAppState extends State<MonoEditorApp> {
                       TextLineBreak.crlf => 'CRLF',
                       TextLineBreak.cr => 'CR',
                     }),
-                    selected: lineBreak == tab.controller.options.lineBreak,
+                    selected: lineBreak == tab.lineBreak,
                     onPressed: () => _changeLineBreak(tab, lineBreak),
                   ),
               ],
