@@ -27,7 +27,8 @@ void main() {
     final controller = tester
         .widget<CodeEditor>(find.byType(CodeEditor))
         .controller!;
-    expect(controller.text, '第一行\r\n第二行');
+    expect(controller, same(first));
+    expect(controller.text, '第一行\n第二行');
     expect(find.text('CRLF'), findsOneWidget);
 
     await tester.tap(find.text('第 1 行，第 1 列'));
@@ -46,6 +47,29 @@ void main() {
       tester.widget<CodeEditor>(find.byType(CodeEditor)).focusNode?.hasFocus,
       isTrue,
     );
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('切换换行符后保留编辑撤销历史', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    await tester.pumpWidget(const MonoEditorApp());
+    final controller = tester
+        .widget<CodeEditor>(find.byType(CodeEditor))
+        .controller!;
+    controller.replaceSelection('内容');
+    expect(controller.canUndo, isTrue);
+
+    await tester.tap(find.text('LF'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CRLF'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CodeEditor>(find.byType(CodeEditor)).controller,
+      same(controller),
+    );
+    expect(controller.canUndo, isTrue);
+    controller.undo();
+    expect(controller.text, isEmpty);
     debugDefaultTargetPlatformOverride = null;
   });
 
